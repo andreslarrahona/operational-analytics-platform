@@ -1,0 +1,19 @@
+# iso_compliance_profile
+# This profile connects to the PostgreSQL Data Warehouse container.
+# It uses environment variables to maintain security standards for ISO 17025 compliance.
+
+iso_compliance_dw:
+  outputs:
+    dev:
+      type: postgres
+      # This host must match the service name in docker-compose.yml
+      host: postgres-dw
+      port: 5432
+      user: "{{ env_var('DW_USER') }}"
+      password: "{{ env_var('DW_PASSWORD') }}"
+      dbname: "{{ env_var('DW_DB') }}"
+      # 'analytics' schema separates modeled data from 'raw' and 'audit' schemas
+      schema: analytics
+      threads: 4
+      connect_timeout: 10
+  target: dev

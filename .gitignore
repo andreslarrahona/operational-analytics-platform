@@ -1,0 +1,43 @@
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Sensitive Information ---
+# Never commit credentials or local environment variables
+.env
+.env.local
+*.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+
+# --- Apache Airflow ---
+# Ignore logs and database files generated during execution
+airflow/logs/
+airflow/airflow.db
+airflow/*.pid
+airflow/unittests.cfg
+
+# --- dbt (Data Build Tool) ---
+# Ignore the target folder (compiled SQL and run artifacts) 
+# and the packages folder (dependencies downloaded via dbt deps)
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/dbt_modules/
+
+# --- Development Tools ---
+.idea/
+.vscode/
+*.swp
+*.bak

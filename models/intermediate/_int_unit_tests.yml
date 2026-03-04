@@ -1,0 +1,74 @@
+version: 2
+
+unit_tests:
+  - name: test_int_ordenes_pivoted_estados_duplicados
+    description: "Checks that if the backend inserts repeated statuses, the model takes the first correct timestamp using MIN()."
+    model: int_ordenes_pivoted
+    given:
+      - input: ref('stg_cambios_estados_ordenes')
+        rows:
+          # Order 999: Simulation of backend error with multiple status 2
+          - {id_orden: 999, id_estado: 1, fecha_cambio: '2026-03-01 10:00:00', id_usuario: 10}
+          - {id_orden: 999, id_estado: 2, fecha_cambio: '2026-03-01 11:00:00', id_usuario: 11} # The valid one
+          - {id_orden: 999, id_estado: 2, fecha_cambio: '2026-03-01 11:30:00', id_usuario: 11} # Garbage
+          - {id_orden: 999, id_estado: 2, fecha_cambio: '2026-03-01 12:00:00', id_usuario: 11} # Garbage
+          - {id_orden: 999, id_estado: 3, fecha_cambio: '2026-03-01 15:00:00', id_usuario: 12}
+    expect:
+      rows:
+        # We require that the final result flattens the order and takes the correct timestamps
+        - id_orden: 999
+          ts_ingresado: '2026-03-01 10:00:00'
+          ts_enproceso: '2026-03-01 11:00:00' # Should have ignored the 11:30 and 12:00 ones
+          ts_calibrado: '2026-03-01 15:00:00'
+          user_ingreso: 10
+          user_enproceso: 11
+          user_calibrado: 12
+  - name: test_int_ordenes_pivoted_ciclo_retrabajo
+    description: "Validates that in a correction cycle, the model captures the first calibration and the last emission/approval."
+    model: int_ordenes_pivoted
+    given:
+      - input: ref('stg_cambios_estados_ordenes')
+        rows:
+          - {id_orden: 888, id_estado: 1, fecha_cambio: '2026-03-01 10:00:00', id_usuario: 10}
+          - {id_orden: 888, id_estado: 2, fecha_cambio: '2026-03-01 11:00:00', id_usuario: 10}
+          - {id_orden: 888, id_estado: 3, fecha_cambio: '2026-03-01 12:00:00', id_usuario: 11} # 1st calibrated (Expected in ts_calibrado)
+          - {id_orden: 888, id_estado: 4, fecha_cambio: '2026-03-01 13:00:00', id_usuario: 12} # 1st notified (Expected in ts_notificar_retiro)
+          - {id_orden: 888, id_estado: 3, fecha_cambio: '2026-03-01 14:00:00', id_usuario: 11} # 2nd calibrated
+          - {id_orden: 888, id_estado: 4, fecha_cambio: '2026-03-01 15:00:00', id_usuario: 12} 
+          - {id_orden: 888, id_estado: 8, fecha_cambio: '2026-03-01 16:00:00', id_usuario: 13} # 1st approved
+          - {id_orden: 888, id_estado: 4, fecha_cambio: '2026-03-01 17:00:00', id_usuario: 12} # Last emitted (Expected in ts_emitido)
+          - {id_orden: 888, id_estado: 8, fecha_cambio: '2026-03-01 18:00:00', id_usuario: 14} # Last approved (Expected in ts_aprobado)
+          - {id_orden: 888, id_estado: 5, fecha_cambio: '2026-03-01 19:00:00', id_usuario: 15}
+    expect:
+      rows:
+        - id_orden: 888
+          ts_ingresado: '2026-03-01 10:00:00'
+          ts_enproceso: '2026-03-01 11:00:00'
+          ts_calibrado: '2026-03-01 12:00:00' 
+          ts_notificar_retiro: '2026-03-01 13:00:00' 
+          ts_emitido: '2026-03-01 17:00:00' 
+          ts_aprobado: '2026-03-01 18:00:00' 
+          ts_subido: '2026-03-01 19:00:00'
+          ts_notificar_certificado: '2026-03-01 19:00:00'
+          user_aprobado: 14 # The test will expect 14 because it's the highest number (by MAX(id_usuario))
+  - name: test_int_ordenes_pivoted_incompleta
+    description: "Validates that an order in progress (WIP) handles nulls without breaking the metric math."
+    model: int_ordenes_pivoted
+    given:
+      - input: ref('stg_cambios_estados_ordenes')
+        rows:
+          # Order 777: Only ingested and moved to process. Nothing else.
+          - {id_orden: 777, id_estado: 1, fecha_cambio: '2026-03-01 10:00:00', id_usuario: 10}
+          - {id_orden: 777, id_estado: 2, fecha_cambio: '2026-03-01 11:00:00', id_usuario: 11}
+    expect:
+      rows:
+        - id_orden: 777
+          ts_ingresado: '2026-03-01 10:00:00'
+          ts_enproceso: '2026-03-01 11:00:00'
+          # Subsequent timestamps MUST be null
+          ts_calibrado: null
+          ts_notificar_retiro: null
+          ts_emitido: null
+          # Mathematical metrics should not throw errors, they should return null
+          dias_en_proceso: null
+          dias_para_emitir: null

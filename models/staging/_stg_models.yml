@@ -1,0 +1,231 @@
+version: 2
+
+models:
+  - name: stg_cambios_estados_ordenes
+    columns:
+      - name: id_cambio_estado
+        description: "Primary key for order status change"
+        tests:
+          - unique
+          - not_null
+      - name: id_orden
+        description: "Foreign key to orders"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ordenes')
+              field: id_orden
+      - name: id_estado
+        description: "Foreign key to order states"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_estados_ordenes')
+              field: id_estado
+      - name: id_usuario
+        description: "Foreign key to users"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_usuarios')
+              field: id_usuario
+      - name: fecha_cambio
+        description: "Date of status change"
+        tests:
+          - not_null
+  - name: stg_clientes
+    columns:
+      - name: id_cliente
+        description: "Primary key for clients"
+        tests:
+          - unique
+          - not_null
+  - name: stg_estados_ordenes
+    columns:
+      - name: id_estado
+        description: "Primary key for states"
+        tests:
+          - unique
+          - not_null
+      - name: id_secuencia_estado
+        description: "State sequence identification"
+        tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 10, 11]
+  - name: stg_instrumentos_clientes
+    columns:
+      - name: id_instrumento
+        description: "Primary key for client instruments"
+        tests:
+          - unique
+          - not_null
+      - name: id_modelo
+        description: "Foreign key to models"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_modelos')
+              field: id_modelo
+      - name: id_cliente
+        description: "Foreign key to clients"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_clientes')
+              field: id_cliente
+      - name: nro_serie
+        description: "Serial number"
+        tests:
+          - not_null
+  - name: stg_marcas
+    columns:
+      - name: id_marca
+        description: "Primary key for brands"
+        tests:
+          - unique
+          - not_null
+  - name: stg_modelos
+    columns:
+      - name: id_modelo
+        description: "Primary key for models"
+        tests:
+          - unique
+          - not_null
+      - name: id_marca
+        description: "Foreign key to brands"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_marcas')
+              field: id_marca
+      - name: id_tipo_instrumento
+        description: "Foreign key to instrument types"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tipos_instrumentos')
+              field: id_tipo_instrumento
+      - name: modelo
+        description: "Model description"
+        tests:
+          - not_null
+  - name: stg_notas_ingreso
+    columns:
+      - name: id_nota_ingreso
+        description: "Primary key for intake notes"
+        tests:
+          - unique
+          - not_null
+      - name: id_recibe
+        description: "User who receives the instruments"
+        tests:
+          - relationships:
+              to: ref('stg_usuarios')
+              field: id_usuario
+      - name: fecha_nota_ingreso
+        description: "Date of intake notes"
+        tests:
+          - not_null
+      - name: id_cliente
+        description: "Foreign key to clients"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_clientes')
+              field: id_cliente
+  - name: stg_ordenes
+    description: "Clean and standardized service orders."
+    columns:
+      - name: id_orden
+        description: "Primary key for the order."
+        tests:
+          - unique
+          - not_null
+
+      - name: id_instrumento
+        description: "Foreign key to client instruments."
+        tests:
+          - not_null
+          # Referential integrity:
+          - relationships:
+              to: ref('stg_instrumentos_clientes')
+              field: id_instrumento
+      - name: prioridad
+        description: "Order priority level."
+        tests:
+          - accepted_values:
+              values: ['Alta', 'Urgente', 'Normal']
+      - name: fecha_creacion
+        description: "Service order creation date"
+        tests:
+          - not_null
+  - name: stg_remito_movimientos
+    description: "Movements of intake notes and delivery notes"
+    columns:
+      - name: id_movimiento
+        description: "Primary key for the movement"
+        tests:
+          - unique
+          - not_null
+      - name: id_instrumento
+        description: "Foreign key to client instruments."
+        tests:
+          - not_null
+          # Referential integrity:
+          - relationships:
+              to: ref('stg_instrumentos_clientes')
+              field: id_instrumento
+      - name: id_nota_ingreso
+        description: "Foreign key to intake notes."
+        tests:
+          - not_null
+          # Referential integrity:
+          - relationships:
+              to: ref('stg_notas_ingreso')
+              field: id_nota_ingreso
+      - name: id_remito
+        description: "Foreign key to delivery notes."
+        tests:
+          # Referential integrity:
+          - relationships:
+              to: ref('stg_remitos')
+              field: id_remito
+  - name: stg_remitos
+    columns:
+      - name: id_remito
+        description: "Primary key for delivery notes"
+        tests:
+          - unique
+          - not_null
+      - name: id_entrega
+        description: "User who delivers the instruments"
+        tests:
+          - relationships:
+              to: ref('stg_usuarios')
+              field: id_usuario
+      - name: fecha_remito
+        description: "Delivery note date"
+        tests:
+          - not_null
+  - name: stg_tipos_instrumentos
+    columns:
+      - name: id_tipo_instrumento
+        description: "Primary key for instrument types"
+        tests:
+          - unique
+          - not_null
+      - name: tipo_instrumento
+        description: "Instrument type description"
+        tests:
+          - not_null
+  - name: stg_usuarios
+    columns:
+      - name: id_usuario
+        description: "Primary key for users"
+        tests:
+          - unique
+          - not_null
+      - name: nombre_usuario
+        description: "User name"
+        tests:
+          - not_null
