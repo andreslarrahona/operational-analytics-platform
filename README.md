@@ -38,7 +38,7 @@ graph LR
 *   **Transformation (T):** **dbt (Data Build Tool)** handles the logic within PostgreSQL across three structured layers:
     *   `staging/`: Standardizes naming conventions and enforces strict type casting.
     *   `intermediate/`: This layer acts as the primary logic refinery. It handles **state deduplication** (selecting the most recent record from the append-only source), temporal pivoting of states, and window functions for logistical matching.
-    *   `marts/`: Final presentation using a **Star Schema (Kimball)**. It exposes dimensions (`dim_instrumentos`) and fact tables (`fct_ordenes`) optimized for analytical consumption in Metabase.
+    *   `marts/`: Final presentation using a **Star Schema (Kimball)**. It exposes dimensions (`dim_instrumentos`) and fact tables (`fct_ordenes`) optimized for analytical consumption in Metabase. Grain is one row per laboratory service order, including its final metrological state and calculated lead times.
 
 ---
 
@@ -61,10 +61,10 @@ graph LR
     F[Phase 1: Source Freshness] --> G[Phase 2: Generic Tests]
     G --> U[Phase 3: Unit Testing]
     U --> S[Phase 4: Singular Tests]
-    style F fill:#E8E8E5,stroke:#333
-    style G fill:#F4F3EE,stroke:#333
-    style U fill:#F4F3EE,stroke:#333
-    style S fill:#FAF9F7,stroke:#333
+    style F fill:#E8E8E5,stroke:#333,color:#333
+    style G fill:#F4F3EE,stroke:#333,color:#333
+    style U fill:#F4F3EE,stroke:#333,color:#333
+    style S fill:#FAF9F7,stroke:#333,color:#333
 ```
 
 #### Phase 1: Source Freshness (Latency Control)
@@ -230,40 +230,39 @@ Beyond validation, the framework establishes a continuous feedback loop for tech
 ### 6. Engineering Decisions & Trade-offs
 The design of this architecture was guided by a pragmatic assessment of the laboratory's operational reality and regulatory constraints:
 
-*   **Full Refresh over Incremental:** Given the current data scale (thousands of records), a **Full Refresh** strategy was prioritized. This approach minimizes architectural complexity and significantly reduces the maintenance overhead, providing optimal performance without the risks associated with managing complex incremental logic in a low-volume environment.
+*   **Full Refresh over Incremental:** While the ingestion is Append-only to preserve history, the transformation layer uses a Full Refresh/Recreation strategy for the final models. This ensures logic simplicity while maintaining a 100% auditable record of every change in the raw layer.
 *   **On-Premise Infrastructure:** Deployment via **Docker Compose** on internal servers was a mandatory requirement. Cloud-native architectures were discarded to ensure total data residency, complying with strict laboratory network policies regarding the confidentiality of metrological information.
 *   **Batch Processing:** Ingestion and transformation cycles are scheduled in batches. For the current requirements of lead-time analysis and logistical bottleneck identification, the resulting latency is well within operational needs. Implementing real-time streaming (e.g., Kafka) was considered an unnecessary complication that would add risk without adding business value.
 
 ---
 
-### 7. Project Structure
+### 7. Repository Structure
 ```text
-iso-data-observability-dw/
+iso-compliance-framework/
 ├── airflow/
-│   └── dags/                # DAG definitions (dag_olap.py)
-├── dbt_centec/
-│   ├── macros/              # Reusable SQL snippets
+│   └── dags/
+│       └── iso_17025_ingestion_dag.py   # Orchestration: E-L & Audit persistence logic
+├── dbt/
 │   ├── models/
-│   │   ├── staging/         # Renaming and type casting
-│   │   ├── intermediate/    # Complex business logic (Pivoting/Aggregations)
-│   │   └── marts/           # Presentation layer (Star Schema)
-│   ├── tests/               # Singular business tests (ISO 17025 Audit)
-│   ├── dbt_project.yml      # dbt project configuration
-│   └── profiles.yml.example # Connection template (Redacted)
-├── docker-compose.yml       # Full stack orchestration
-└── README.md
+│   │   ├── staging/                     # Layer 1: Data cleaning & Append-only deduplication
+│   │   │   ├── _stg_models.yml          # Schema definitions & generic tests
+│   │   │   └── stg_ordenes.sql          # Primary staging model with row_number() logic
+│   │   ├── intermediate/                # Layer 2: Refinement & ISO 17025 business logic
+│   │   │   ├── _int_unit_tests.yml      # Unit tests for complex state pivoting
+│   │   │   └── int_ordenes_pivoted.sql  # Complex transformation: state duration logic
+│   │   └── marts/                       # Layer 3: Presentation layer (Star Schema)
+│   │       └── core/
+│   │           └── fct_ordenes.sql      # Fact table optimized for BI consumption
+│   ├── tests/                           # Singular tests: Automated ISO 17025 Auditors
+│   │   ├── test_workflow_chronology.sql # Validates logical state sequence
+│   │   ├── test_segregation_duties.sql  # Detects conflicts of interest (ISO requirement)
+│   │   └── test_unauthorized_approval.sql # Flags compliance breaches in certificates
+│   ├── dbt_project.yml                  # Project configuration & materialization rules
+│   └── profiles.yml                     # DB Connection template using environment variables
+├── .env.example                         # Template for environment-specific credentials
+├── .gitignore                           # Excludes sensitive data and execution artifacts
+├── Dockerfile                           # Custom Airflow image with dbt-postgres installed
+├── docker-compose.yml                   # Full-stack orchestration (Airflow + DW + Metabase)
+├── requirements.txt                     # Python dependencies (Pandas, SQLAlchemy, etc.)
+└── README.md                            # Technical documentation & architecture overview
 ```
-
----
-
-#### Repository Content
-
-This repository is a **technical showcase** of the project's architecture and core logic. While the full environment is hosted on-premise, the following key files are included to demonstrate the implementation:
-
-* **Core Transformation:** `models/intermediate/int_ordenes_pivoted.sql` (Complex state pivoting logic).
-* **Dimensional Model:** `models/marts/core/fct_ordenes.sql` (Final Star Schema implementation).
-* **Quality Assurance:** `models/intermediate/_int_unit_tests.yml` (Unit testing for edge case validation).
-* **Configuration:** `dbt_project.yml` (Project standards and materializations).
-
-
-
