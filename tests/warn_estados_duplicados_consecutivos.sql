@@ -2,7 +2,7 @@
 
 -- Detect consecutive duplicate states in the order workflow timeline.
 
-with state_history as (
+with state_sequence as (
 
     select 
         id_orden,
