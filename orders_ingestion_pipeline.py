@@ -68,7 +68,7 @@ def run_append_only_ingestion():
             )
         print(f"Successfully persisted {len(df)} rows for {table_name}.")
 
-def parse_dbt_execution_results():
+def process_dbt_results():
     """
     Parses the dbt run_results.json artifact to extract test failures and 
     warnings, persisting them into the audit schema for long-term tracking.
@@ -138,7 +138,7 @@ with DAG(
     # Note: trigger_rule='all_done' ensures we record failures even if dbt_build fails
     persist_audit = PythonOperator(
         task_id='persist_test_audit',
-        python_callable=parse_dbt_execution_results,
+        python_callable=process_dbt_results,
         trigger_rule='all_done' 
     )
 

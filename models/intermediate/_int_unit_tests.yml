@@ -23,7 +23,7 @@ unit_tests:
           user_ingreso: 10
           user_enproceso: 11
           user_calibrado: 12
-  - name: test_int_ordenes_pivoted_ciclo_retrabajo
+  - name: test_int_ordenes_pivoted_ciclo_retrabajo # test_int_ordenes_pivoted_rework_cycles
     description: "Validates that in a correction cycle, the model captures the first calibration and the last emission/approval."
     model: int_ordenes_pivoted
     given:
